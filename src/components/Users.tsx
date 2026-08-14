@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Edit, Trash2, Plus, Users as UsersIcon, GraduationCap, Layers, Download, XCircle, AlertTriangle } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, Users as UsersIcon, GraduationCap, Layers, Download, XCircle, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import AddUserModal from '../modal/AddUserModal';
 
 interface StudentRecord {
@@ -21,8 +21,8 @@ interface Stats {
   houses: number;
 }
 
-const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-const houses = ['Phoenix', 'Griffin', 'Dragon', 'Unicorn'];
+const gradeLevels = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const houses = ['Phoenix', 'Griffin', 'Dragon', 'Unicorn', 'Orcas'];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -31,7 +31,9 @@ const HOUSE_PALETTE: Record<string, string> = {
   Griffin: '#2E5C8A',
   Dragon: '#5C6B2F',
   Unicorn: '#7B5EA7',
+  Orcas: '#2B7A78',
 };
+
 const houseColor = (house: string) => HOUSE_PALETTE[house] || '#5B6472';
 
 const INK = '#1B2130';
@@ -52,6 +54,18 @@ const fieldStyle: React.CSSProperties = {
   color: INK,
 };
 
+const HEADERS = [
+  { label: 'First Name', width: 'w-32' },
+  { label: 'Middle Name', width: 'w-32' },
+  { label: 'Last Name', width: 'w-32' },
+  { label: 'Grade Level', width: 'w-28' },
+  { label: 'Guardian', width: 'w-40' },
+  { label: 'Contact', width: 'w-36' },
+  { label: 'Address', width: 'w-64' },
+  { label: 'House', width: 'w-28' },
+  { label: 'Actions', width: 'w-20' },
+];
+
 const Users = () => {
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, gradeLevels: 0, houses: 0 });
@@ -64,6 +78,10 @@ const Users = () => {
   const [gradeFilter, setGradeFilter] = useState<string>('all');
   const [houseFilter, setHouseFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
@@ -80,6 +98,11 @@ const Users = () => {
     }
   }, [successMessage]);
 
+  // Reset pagination to page 1 whenever filters or search terms change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, gradeFilter, houseFilter, itemsPerPage]);
+
   const fetchStudents = async () => {
     try {
       setLoading(true);
@@ -90,7 +113,15 @@ const Users = () => {
       const result = await response.json();
       if (result.success) {
         setStudents(result.data);
-        setStats(result.stats);
+        if (result.stats) {
+          setStats(result.stats);
+        } else {
+          setStats({
+            total: result.data.length,
+            gradeLevels: new Set(result.data.map((s: StudentRecord) => s.gradeLevel)).size,
+            houses: new Set(result.data.map((s: StudentRecord) => s.house)).size,
+          });
+        }
       } else {
         setError(result.error || 'Failed to fetch students');
       }
@@ -103,16 +134,35 @@ const Users = () => {
   };
 
   const filteredRecords = students.filter((record) => {
-    const fullName = `${record.firstName} ${record.middleName} ${record.lastName}`.toLowerCase();
+    const fn = (record.firstName || '').toLowerCase();
+    const mn = (record.middleName || '').toLowerCase();
+    const ln = (record.lastName || '').toLowerCase();
+    const sn = (record.studentNumber || '').toLowerCase();
+    const gn = (record.guardianName || '').toLowerCase();
+    const addr = (record.address || '').toLowerCase();
+
+    const term = searchTerm.toLowerCase().trim();
+
     const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      record.studentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.guardianName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.address.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      fn.includes(term) ||
+      mn.includes(term) ||
+      ln.includes(term) ||
+      `${fn} ${mn} ${ln}`.includes(term) ||
+      sn.includes(term) ||
+      gn.includes(term) ||
+      addr.includes(term);
+
     const matchesGrade = gradeFilter === 'all' || record.gradeLevel === gradeFilter;
     const matchesHouse = houseFilter === 'all' || record.house === houseFilter;
+
     return matchesSearch && matchesGrade && matchesHouse;
   });
+
+  // Calculate paginated slice
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRecords = filteredRecords.slice(startIndex, startIndex + itemsPerPage);
 
   const handleEdit = (record: StudentRecord) => {
     setEditingId(record.id);
@@ -289,31 +339,32 @@ const Users = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px]">
+          <table className="w-full table-fixed min-w-[1000px]">
             <thead>
               <tr style={{ borderBottom: `1px solid ${PAPER_LINE}` }}>
-                {['Student No.', 'First', 'Middle', 'Last', 'Grade', 'Guardian', 'Contact', 'Address', 'House', ''].map((h) => (
-                  <th key={h} className="text-left py-3 px-4 text-[11px] tracking-[0.1em] uppercase whitespace-nowrap" style={{ fontFamily: "'IBM Plex Mono', monospace", color: MUTED, fontWeight: 500 }}>{h}</th>
+                {HEADERS.map((h) => (
+                  <th key={h.label} className={`text-left py-3 px-4 text-[11px] tracking-[0.1em] uppercase ${h.width}`} style={{ fontFamily: "'IBM Plex Mono', monospace", color: MUTED, fontWeight: 500 }}>
+                    {h.label}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((record) => (
+              {paginatedRecords.map((record) => (
                 <tr key={record.id} style={{ borderBottom: `1px solid ${PAPER_LINE}` }} className="hover:bg-[#F7F8F4] transition-colors">
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ fontFamily: "'IBM Plex Mono', monospace", color: INK }}>{record.studentNumber}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ color: INK }}>{record.firstName}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ color: INK }}>{record.middleName}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ color: INK }}>{record.lastName}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ color: INK }}>{record.gradeLevel}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ color: INK }}>{record.guardianName}</td>
-                  <td className="py-3 px-4 text-sm whitespace-nowrap" style={{ fontFamily: "'IBM Plex Mono', monospace", color: INK }}>{record.guardianContactNo}</td>
-                  <td className="py-3 px-4 text-sm max-w-[200px] truncate" style={{ color: MUTED }} title={record.address}>{record.address}</td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <span className="text-[10px] px-2 py-1 rounded-sm uppercase tracking-wide" style={{ color: houseColor(record.house), border: `1px solid ${houseColor(record.house)}`, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: INK }}>{record.firstName}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: INK }}>{record.middleName}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: INK }}>{record.lastName}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: INK }}>{record.gradeLevel}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: INK }}>{record.guardianName}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ fontFamily: "'IBM Plex Mono', monospace", color: INK }}>{record.guardianContactNo}</td>
+                  <td className="py-3 px-4 text-sm truncate" style={{ color: MUTED }} title={record.address}>{record.address}</td>
+                  <td className="py-3 px-4">
+                    <span className="text-[10px] px-2 py-1 rounded-sm uppercase tracking-wide inline-block" style={{ color: houseColor(record.house), border: `1px solid ${houseColor(record.house)}`, fontFamily: "'IBM Plex Mono', monospace" }}>
                       {record.house}
                     </span>
                   </td>
-                  <td className="py-3 px-4 whitespace-nowrap">
+                  <td className="py-3 px-4">
                     <div className="flex gap-1">
                       <button onClick={() => handleEdit(record)} className="p-1.5 rounded-sm transition-colors" style={{ color: MUTED }} title="Edit"><Edit size={15} /></button>
                       <button onClick={() => handleDeleteClick(record.id, `${record.firstName} ${record.lastName}`)} className="p-1.5 rounded-sm transition-colors" style={{ color: HOUSE_PALETTE.Phoenix }} title="Delete"><Trash2 size={15} /></button>
@@ -332,6 +383,54 @@ const Users = () => {
             </div>
           )}
         </div>
+
+        {/* Pagination Bar */}
+        {filteredRecords.length > 0 && (
+          <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderTop: `1px solid ${PAPER_LINE}` }}>
+            <div className="flex items-center gap-3">
+              <span className="text-xs" style={{ fontFamily: "'IBM Plex Mono', monospace", color: MUTED }}>
+                Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredRecords.length)} of {filteredRecords.length}
+              </span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="text-xs py-1 px-2 focus:outline-none border-b"
+                style={fieldStyle}
+              >
+                <option value={5}>5 / page</option>
+                <option value={10}>10 / page</option>
+                <option value={20}>20 / page</option>
+                <option value={50}>50 / page</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-sm border disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{ borderColor: PAPER_LINE, color: INK }}
+                title="Previous Page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <span className="text-xs px-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: INK }}>
+                Page {currentPage} of {totalPages || 1}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage >= totalPages}
+                className="p-1.5 rounded-sm border disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{ borderColor: PAPER_LINE, color: INK }}
+                title="Next Page"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showDeleteConfirm && (

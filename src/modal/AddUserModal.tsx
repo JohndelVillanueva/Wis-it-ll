@@ -34,8 +34,8 @@ const emptyFormData = {
   house: '',
 };
 
-const gradeLevels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-const houses = ['Phoenix', 'Griffin', 'Dragon', 'Unicorn'];
+const gradeLevels = ['Toddler','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const houses = ['Owl', 'Wolves', 'Bulls', 'Orcas'];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
