@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, IdCard, GraduationCap, Home, Phone, MapPin, Loader2, X } from 'lucide-react';
+import { User, IdCard, GraduationCap, Home, Phone, MapPin, Loader2, X, ChevronDown } from 'lucide-react';
 
 interface StudentRecord {
   id: number;
@@ -34,7 +34,32 @@ const emptyFormData = {
   house: '',
 };
 
-const gradeLevels = ['Toddler','Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const gradeLevelGroups = [
+  { label: 'Early Years', options: ['Toddler', 'Nursery', 'Pre-Kinder'] },
+  {
+    label: 'Primary',
+    options: [
+      'Kinder - Year 1',
+      'Grade 1 - Year 2',
+      'Grade 2 - Year 3',
+      'Grade 3 - Year 4',
+      'Grade 4 - Year 5',
+      'Grade 5 - Year 6',
+      'Grade 6 - Year 7',
+    ],
+  },
+  {
+    label: 'Secondary',
+    options: [
+      'Grade 7 - Year 8',
+      'Grade 8 - Year 9',
+      'Grade 9 - Year 10',
+      'Grade 10 - Year 11',
+      'Grade 11 - Year 12',
+      'Grade 12 - Year 13',
+    ],
+  },
+];
 const houses = ['Owl', 'Wolves', 'Bulls', 'Orcas'];
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -80,6 +105,39 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingRecord = null, isSubmitt
 
   const [generatedStudentNumber, setGeneratedStudentNumber] = useState<string>('');
   const [isLoadingStudentNumber, setIsLoadingStudentNumber] = useState(false);
+
+  const [guardianSuggestions, setGuardianSuggestions] = useState<
+    { guardianName: string; guardianContactNo: string; address: string }[]
+  >([]);
+  const [showGuardianDropdown, setShowGuardianDropdown] = useState(false);
+  const [isSearchingGuardians, setIsSearchingGuardians] = useState(false);
+
+  useEffect(() => {
+    const query = formData.guardianName?.trim();
+    if (!query) {
+      setGuardianSuggestions([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsSearchingGuardians(true);
+        const response = await fetch(`${API_URL}/api/search-guardian-names?q=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('Failed to search guardians');
+        const result = await response.json();
+        if (result.success) {
+          setGuardianSuggestions(result.data);
+        }
+      } catch (error) {
+        console.error('Error searching guardian names:', error);
+        setGuardianSuggestions([]);
+      } finally {
+        setIsSearchingGuardians(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.guardianName]);
 
   useEffect(() => {
     if (isOpen && !editingRecord) {
@@ -204,25 +262,119 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingRecord = null, isSubmitt
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Grade Level *" icon={GraduationCap}>
-                  <select value={formData.gradeLevel} onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })} required
-                    className="w-full pb-2 text-sm focus:outline-none appearance-none" style={fieldStyle}>
-                    <option value="">Select grade level</option>
-                    {gradeLevels.map((g) => <option key={g} value={g}>{g}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={formData.gradeLevel}
+                      onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })}
+                      required
+                      className="w-full pl-3 pr-9 py-2.5 text-sm rounded-sm cursor-pointer focus:outline-none appearance-none transition-colors"
+                      style={{
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        background: '#fff',
+                        border: `1px solid ${PAPER_LINE}`,
+                        color: formData.gradeLevel ? INK : MUTED,
+                      }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = BRASS)}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = PAPER_LINE)}
+                    >
+                      <option value="">Select grade level</option>
+                      {gradeLevelGroups.map((group) => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.options.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: MUTED }} />
+                  </div>
                 </Field>
                 <Field label="House *" icon={Home}>
-                  <select value={formData.house} onChange={(e) => setFormData({ ...formData, house: e.target.value })} required
-                    className="w-full pb-2 text-sm focus:outline-none appearance-none" style={fieldStyle}>
-                    <option value="">Select house</option>
-                    {houses.map((h) => <option key={h} value={h}>{h}</option>)}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={formData.house}
+                      onChange={(e) => setFormData({ ...formData, house: e.target.value })}
+                      required
+                      className="w-full pl-3 pr-9 py-2.5 text-sm rounded-sm cursor-pointer focus:outline-none appearance-none transition-colors"
+                      style={{
+                        fontFamily: "'IBM Plex Mono', monospace",
+                        background: '#fff',
+                        border: `1px solid ${PAPER_LINE}`,
+                        color: formData.house ? INK : MUTED,
+                      }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = BRASS)}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = PAPER_LINE)}
+                    >
+                      <option value="">Select house</option>
+                      {houses.map((h) => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: MUTED }} />
+                  </div>
                 </Field>
               </div>
 
               <Field label="Guardian Name *" icon={User}>
-                <input type="text" value={formData.guardianName} onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })} required
-                  className="w-full pb-2 text-sm focus:outline-none" style={fieldStyle} placeholder="Enter guardian name"
-                  onFocus={(e) => (e.currentTarget.style.borderBottomColor = BRASS)} onBlur={(e) => (e.currentTarget.style.borderBottomColor = PAPER_LINE)} />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.guardianName}
+                    onChange={(e) => {
+                      setFormData({ ...formData, guardianName: e.target.value });
+                      setShowGuardianDropdown(true);
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderBottomColor = BRASS;
+                      if (guardianSuggestions.length > 0) setShowGuardianDropdown(true);
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderBottomColor = PAPER_LINE;
+                      // Delay so a click on a suggestion registers before the dropdown unmounts
+                      setTimeout(() => setShowGuardianDropdown(false), 150);
+                    }}
+                    required
+                    autoComplete="off"
+                    className="w-full pb-2 text-sm focus:outline-none"
+                    style={fieldStyle}
+                    placeholder="e.g. Nene Santos"
+                  />
+                  {isSearchingGuardians && (
+                    <div className="absolute right-0 top-0">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: BRASS }} />
+                    </div>
+                  )}
+
+                  {showGuardianDropdown && guardianSuggestions.length > 0 && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 z-10 rounded-sm overflow-hidden max-h-48 overflow-y-auto"
+                      style={{ background: '#fff', border: `1px solid ${PAPER_LINE}`, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    >
+                      {guardianSuggestions.map((g, i) => (
+                        <button
+                          key={`${g.guardianName}-${i}`}
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              guardianName: g.guardianName,
+                              guardianContactNo: g.guardianContactNo || formData.guardianContactNo,
+                              address: g.address || formData.address,
+                            });
+                            setShowGuardianDropdown(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 block"
+                          style={{ color: INK, borderBottom: `1px solid ${PAPER_LINE}` }}
+                        >
+                          <div style={{ fontWeight: 500 }}>{g.guardianName}</div>
+                          {g.guardianContactNo && (
+                            <div className="text-xs" style={{ color: MUTED, fontFamily: "'IBM Plex Mono', monospace" }}>
+                              {g.guardianContactNo}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Field>
 
               <Field label="Guardian Contact No. *" icon={Phone}>

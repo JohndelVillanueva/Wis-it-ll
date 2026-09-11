@@ -165,9 +165,9 @@ const Dashboard = () => {
 
   const statCells = [
     { eyebrow: 'Enrolled', value: stats.total.toLocaleString(), note: `${stats.gradeLevels} grade levels on roll`, accent: BRASS },
-    { eyebrow: 'Grade Levels', value: stats.gradeLevels, note: Object.keys(stats.gradeCounts).sort().join(' · ') || '—', accent: houseColor('Griffin') },
+    // { eyebrow: 'Grade Levels', value: stats.gradeLevels, note: Object.keys(stats.gradeCounts).sort().join(' · ') || '—', accent: houseColor('Griffin') },
     { eyebrow: 'Houses', value: stats.houses, note: Object.keys(stats.houseCounts).join(' · ') || '—', accent: houseColor('Dragon') },
-    { eyebrow: 'Standing', value: 'Active', note: 'No outstanding flags', accent: houseColor('Phoenix') },
+    // { eyebrow: 'Standing', value: 'Active', note: 'No outstanding flags', accent: houseColor('Phoenix') },
   ];
 
   const displayActivity = recentStudents.length > 0 ? recentStudents : null;
